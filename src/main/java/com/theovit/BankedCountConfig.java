@@ -51,4 +51,18 @@ public interface BankedCountConfig extends Config
 	{
 		return 12;
 	}
+
+	@ConfigItem(
+		keyName = "persistBankCache",
+		name = "Remember banked counts after logout",
+		description = "Keeps your last known banked counts visible after logging out, without needing to reopen your bank first. Numbers may be inaccurate until you next visit your bank — stored locally, per account.",
+		warning = "Banked counts may be inaccurate when shown from this cache:\n"
+			+ "- You may have visited your bank on another device or client since it was last saved\n"
+			+ "- This is a snapshot from your last bank visit, not live data — it won't reflect anything that changed while you were logged out\n\n"
+			+ "Only enable this if occasional stale numbers are acceptable until you reopen your bank."
+	)
+	default boolean persistBankCache()
+	{
+		return false;
+	}
 }
