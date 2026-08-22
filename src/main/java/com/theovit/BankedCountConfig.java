@@ -63,6 +63,16 @@ public interface BankedCountConfig extends Config
 	}
 
 	@ConfigItem(
+		keyName = "itemPositionOverrides",
+		name = "Per-item overlay position",
+		description = "Overrides the overlay position for specific items, e.g. Cake:TOP_LEFT. Normally managed via shift-right-click > Move banked count on an item."
+	)
+	default String itemPositionOverrides()
+	{
+		return "";
+	}
+
+	@ConfigItem(
 		keyName = "persistBankCache",
 		name = "Remember banked counts after logout",
 		description = "Keeps your last known banked counts visible after logging out, without needing to reopen your bank first. Numbers may be inaccurate until you next visit your bank — stored locally, per account.",

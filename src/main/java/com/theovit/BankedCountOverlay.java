@@ -50,9 +50,15 @@ class BankedCountOverlay extends WidgetItemOverlay
 
 		Font font = BASE_FONT.deriveFont((float) config.fontSize());
 
+		OverlayCorner corner = plugin.getPositionOverride(name);
+		if (corner == null)
+		{
+			corner = config.overlayPosition();
+		}
+
 		Rectangle bounds = widgetItem.getCanvasBounds();
 		FontMetrics metrics = graphics.getFontMetrics(font);
-		Point position = textPosition(config.overlayPosition(), bounds, metrics, text);
+		Point position = textPosition(corner, bounds, metrics, text);
 
 		TextComponent textComponent = new TextComponent();
 		textComponent.setPosition(position);
