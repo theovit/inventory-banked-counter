@@ -1,4 +1,4 @@
-package com.moon;
+package com.theovit;
 
 import net.runelite.client.RuneLite;
 import net.runelite.client.externalplugins.ExternalPluginManager;
