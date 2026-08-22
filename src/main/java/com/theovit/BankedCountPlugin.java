@@ -1,6 +1,18 @@
 package com.theovit;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.google.inject.Provides;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.Reader;
+import java.io.Writer;
+import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -8,6 +20,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
@@ -25,6 +40,8 @@ import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.InventoryID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetUtil;
+import net.runelite.client.RuneLite;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.eventbus.Subscribe;
@@ -58,10 +75,26 @@ public class BankedCountPlugin extends Plugin
 	@Inject
 	private ConfigManager configManager;
 
+	@Inject
+	private Gson gson;
+
+	@Inject
+	private ScheduledExecutorService executor;
+
+	@Inject
+	private ClientThread clientThread;
+
+	private static final File CACHE_DIR = new File(RuneLite.RUNELITE_DIR, BankedCountConfig.GROUP);
+	private static final Type CACHE_TYPE = new TypeToken<Map<Integer, Integer>>()
+	{
+	}.getType();
+
 	// null = bank not opened yet this session; non-null (possibly empty) = bank observed
 	private Map<Integer, Integer> bankQuantities = null;
 
 	private boolean bankReminderShown = false;
+
+	private ScheduledFuture<?> pendingSave;
 
 	private Set<String> excludedItemNames = Collections.emptySet();
 
@@ -78,6 +111,11 @@ public class BankedCountPlugin extends Plugin
 	{
 		overlayManager.remove(overlay);
 		bankQuantities = null;
+		if (pendingSave != null)
+		{
+			pendingSave.cancel(false);
+			pendingSave = null;
+		}
 		log.debug("Inventory Banked Counter stopped");
 	}
 
@@ -89,10 +127,16 @@ public class BankedCountPlugin extends Plugin
 			bankQuantities = null;
 			bankReminderShown = false;
 		}
-		else if (event.getGameState() == GameState.LOGGED_IN && !bankReminderShown && bankQuantities == null)
+		else if (event.getGameState() == GameState.LOGGED_IN && !bankReminderShown)
 		{
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "<col=ff0000>Inventory Banked Counter:</col> open your bank once to start showing banked item counts.", null);
-			bankReminderShown = true;
+			if (config.persistBankCache())
+			{
+				loadCachedBankAsync(true);
+			}
+			else
+			{
+				showLoginNotice(false);
+			}
 		}
 	}
 
@@ -124,6 +168,7 @@ public class BankedCountPlugin extends Plugin
 		}
 
 		bankQuantities = quantities;
+		scheduleSave(quantities);
 	}
 
 	@Subscribe
@@ -166,6 +211,11 @@ public class BankedCountPlugin extends Plugin
 		}
 
 		rebuildExcludedItems();
+
+		if ("persistBankCache".equals(event.getKey()) && config.persistBankCache())
+		{
+			loadCachedBankAsync(false);
+		}
 	}
 
 	Integer getBankQuantity(int canonicalItemId)
@@ -176,6 +226,115 @@ public class BankedCountPlugin extends Plugin
 	boolean isExcluded(String itemName)
 	{
 		return excludedItemNames.contains(itemName.toLowerCase());
+	}
+
+	private void showLoginNotice(boolean usedCache)
+	{
+		if (bankReminderShown)
+		{
+			return;
+		}
+		bankReminderShown = true;
+
+		String message;
+		if (usedCache)
+		{
+			message = "<col=ff0000>Inventory Banked Counter:</col> showing banked counts saved from your last visit — these may be out of date. Open your bank to refresh.";
+		}
+		else if (config.persistBankCache())
+		{
+			message = "<col=ff0000>Inventory Banked Counter:</col> open your bank once to start showing banked item counts.";
+		}
+		else
+		{
+			message = "<col=ff0000>Inventory Banked Counter:</col> open your bank once to start showing banked item counts. Tip: enable \"Remember banked counts after logout\" in the settings to keep counts across logins.";
+		}
+		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", message, null);
+	}
+
+	private void loadCachedBankAsync(boolean announce)
+	{
+		clientThread.invoke(() ->
+		{
+			long hash = client.getAccountHash();
+			executor.execute(() ->
+			{
+				Map<Integer, Integer> loaded = readCacheFile(hash);
+				clientThread.invoke(() ->
+				{
+					boolean usedCache = loaded != null && bankQuantities == null;
+					if (usedCache)
+					{
+						bankQuantities = loaded;
+					}
+					if (announce)
+					{
+						showLoginNotice(usedCache);
+					}
+				});
+			});
+		});
+	}
+
+	private void scheduleSave(Map<Integer, Integer> quantities)
+	{
+		if (!config.persistBankCache())
+		{
+			return;
+		}
+
+		long hash = client.getAccountHash();
+		if (hash == -1)
+		{
+			return;
+		}
+
+		if (pendingSave != null)
+		{
+			pendingSave.cancel(false);
+		}
+		pendingSave = executor.schedule(() -> writeCacheFile(hash, quantities), 2, TimeUnit.SECONDS);
+	}
+
+	private Map<Integer, Integer> readCacheFile(long accountHash)
+	{
+		if (accountHash == -1)
+		{
+			return null;
+		}
+
+		File file = new File(CACHE_DIR, accountHash + ".json");
+		if (!file.isFile())
+		{
+			return null;
+		}
+
+		try (Reader reader = new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))
+		{
+			return gson.fromJson(reader, CACHE_TYPE);
+		}
+		catch (IOException | RuntimeException e)
+		{
+			log.debug("Failed to read banked-count cache", e);
+			return null;
+		}
+	}
+
+	private void writeCacheFile(long accountHash, Map<Integer, Integer> quantities)
+	{
+		try
+		{
+			CACHE_DIR.mkdirs();
+			File file = new File(CACHE_DIR, accountHash + ".json");
+			try (Writer writer = new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8))
+			{
+				gson.toJson(quantities, CACHE_TYPE, writer);
+			}
+		}
+		catch (IOException e)
+		{
+			log.debug("Failed to write banked-count cache", e);
+		}
 	}
 
 	private void rebuildExcludedItems()
