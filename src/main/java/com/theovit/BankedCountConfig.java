@@ -53,6 +53,16 @@ public interface BankedCountConfig extends Config
 	}
 
 	@ConfigItem(
+		keyName = "overlayPosition",
+		name = "Overlay position",
+		description = "Corner of the item slot to draw the banked count in — useful if another plugin already draws an overlay in the default corner."
+	)
+	default OverlayCorner overlayPosition()
+	{
+		return OverlayCorner.BOTTOM_RIGHT;
+	}
+
+	@ConfigItem(
 		keyName = "persistBankCache",
 		name = "Remember banked counts after logout",
 		description = "Keeps your last known banked counts visible after logging out, without needing to reopen your bank first. Numbers may be inaccurate until you next visit your bank — stored locally, per account.",
