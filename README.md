@@ -4,6 +4,8 @@ Shows how many of each inventory item you also have in your bank, drawn directly
 
 Bank contents are only known once you've opened your bank during the current session — nothing is shown before then.
 
+![Inventory Banked Counter overlay](docs/screenshot.png)
+
 ## Features
 
 - Banked-count overlay on inventory items, with configurable text color and font size
