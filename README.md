@@ -9,6 +9,7 @@ Bank contents are only known once you've opened your bank during the current ses
 ## Features
 
 - Banked-count overlay on inventory items, with configurable text color, font size, and corner position (useful if another plugin already draws an overlay in the default corner)
+- Per-item position override for when just one or two items clash with another plugin's overlay — shift-right-click an item and use "Move banked count" to pick a corner just for that item, or "Default" to reset it
 - Optional shorthand numbers for large counts (1.2K / 1.2M / 1.2B), toggleable in settings
 - Shift+right-click an inventory item for an "Exclude from banked count" / "Include in banked count" option, or manage the exclusion list directly in the plugin settings
 - Optional "Remember banked counts after logout" setting to keep showing your last known banked counts immediately after logging back in, without needing to reopen your bank first (off by default — cached numbers can be stale, see the in-app warning when enabling it)

@@ -31,6 +31,7 @@ import net.runelite.api.GameState;
 import net.runelite.api.Item;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.KeyCode;
+import net.runelite.api.Menu;
 import net.runelite.api.MenuAction;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.events.GameStateChanged;
@@ -98,10 +99,13 @@ public class BankedCountPlugin extends Plugin
 
 	private Set<String> excludedItemNames = Collections.emptySet();
 
+	private Map<String, OverlayCorner> positionOverrides = Collections.emptyMap();
+
 	@Override
 	protected void startUp() throws Exception
 	{
 		rebuildExcludedItems();
+		rebuildPositionOverrides();
 		overlayManager.add(overlay);
 		log.debug("Inventory Banked Counter started");
 	}
@@ -200,6 +204,25 @@ public class BankedCountPlugin extends Plugin
 			.setTarget(entry.getTarget())
 			.setType(MenuAction.RUNELITE)
 			.onClick(e -> toggleExclusion(name));
+
+		Menu positionMenu = client.getMenu().createMenuEntry(-1)
+			.setOption("Move banked count")
+			.setTarget(entry.getTarget())
+			.setType(MenuAction.RUNELITE)
+			.createSubMenu();
+
+		positionMenu.createMenuEntry(-1)
+			.setOption("Default")
+			.setType(MenuAction.RUNELITE)
+			.onClick(e -> setPositionOverride(name, null));
+
+		for (OverlayCorner corner : OverlayCorner.values())
+		{
+			positionMenu.createMenuEntry(-1)
+				.setOption(corner.toString())
+				.setType(MenuAction.RUNELITE)
+				.onClick(e -> setPositionOverride(name, corner));
+		}
 	}
 
 	@Subscribe
@@ -211,6 +234,7 @@ public class BankedCountPlugin extends Plugin
 		}
 
 		rebuildExcludedItems();
+		rebuildPositionOverrides();
 
 		if ("persistBankCache".equals(event.getKey()) && config.persistBankCache())
 		{
@@ -226,6 +250,11 @@ public class BankedCountPlugin extends Plugin
 	boolean isExcluded(String itemName)
 	{
 		return excludedItemNames.contains(itemName.toLowerCase());
+	}
+
+	OverlayCorner getPositionOverride(String itemName)
+	{
+		return positionOverrides.get(itemName.toLowerCase());
 	}
 
 	private void showLoginNotice(boolean usedCache)
@@ -362,6 +391,57 @@ public class BankedCountPlugin extends Plugin
 			configManager.setConfiguration(BankedCountConfig.GROUP, "excludedItems", Text.toCSV(names));
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Excluded " + itemName + " from the banked count overlay.", null);
 		}
+	}
+
+	private void rebuildPositionOverrides()
+	{
+		Map<String, OverlayCorner> overrides = new HashMap<>();
+		for (String token : Text.fromCSV(config.itemPositionOverrides()))
+		{
+			int separator = token.indexOf(':');
+			if (separator <= 0 || separator == token.length() - 1)
+			{
+				continue;
+			}
+
+			String name = token.substring(0, separator).trim().toLowerCase();
+			String cornerName = token.substring(separator + 1).trim();
+			try
+			{
+				overrides.put(name, OverlayCorner.valueOf(cornerName));
+			}
+			catch (IllegalArgumentException e)
+			{
+				log.debug("Invalid overlay position override: {}", token);
+			}
+		}
+		positionOverrides = overrides;
+	}
+
+	private void setPositionOverride(String itemName, OverlayCorner corner)
+	{
+		List<String> tokens = new ArrayList<>();
+		for (String token : Text.fromCSV(config.itemPositionOverrides()))
+		{
+			int separator = token.indexOf(':');
+			String name = separator > 0 ? token.substring(0, separator).trim() : token;
+			if (!name.equalsIgnoreCase(itemName))
+			{
+				tokens.add(token);
+			}
+		}
+
+		if (corner != null)
+		{
+			tokens.add(itemName + ":" + corner.name());
+		}
+
+		configManager.setConfiguration(BankedCountConfig.GROUP, "itemPositionOverrides", Text.toCSV(tokens));
+
+		String message = corner != null
+			? "Moved " + itemName + "'s banked count to " + corner + "."
+			: "Reset " + itemName + "'s banked count to the default position.";
+		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", message, null);
 	}
 
 	@Provides
