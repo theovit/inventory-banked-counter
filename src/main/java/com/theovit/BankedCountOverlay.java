@@ -1,6 +1,6 @@
-package com.moon;
+package com.theovit;
 
-import java.awt.Color;
+import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Point;
@@ -8,11 +8,14 @@ import java.awt.Rectangle;
 import javax.inject.Inject;
 import net.runelite.api.widgets.WidgetItem;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.overlay.WidgetItemOverlay;
 import net.runelite.client.ui.overlay.components.TextComponent;
 
 class BankedCountOverlay extends WidgetItemOverlay
 {
+	private static final Font BASE_FONT = FontManager.getRunescapeBoldFont();
+
 	private final ItemManager itemManager;
 	private final BankedCountPlugin plugin;
 	private final BankedCountConfig config;
@@ -45,14 +48,17 @@ class BankedCountOverlay extends WidgetItemOverlay
 
 		String text = formatCount(bankCount);
 
+		Font font = BASE_FONT.deriveFont((float) config.fontSize());
+
 		Rectangle bounds = widgetItem.getCanvasBounds();
-		FontMetrics metrics = graphics.getFontMetrics();
+		FontMetrics metrics = graphics.getFontMetrics(font);
 		int x = bounds.x + bounds.width - metrics.stringWidth(text) - 1;
 		int y = bounds.y + bounds.height - 2;
 
 		TextComponent textComponent = new TextComponent();
 		textComponent.setPosition(new Point(x, y));
-		textComponent.setColor(Color.CYAN);
+		textComponent.setColor(config.textColor());
+		textComponent.setFont(font);
 		textComponent.setOutline(true);
 		textComponent.setText(text);
 		textComponent.render(graphics);

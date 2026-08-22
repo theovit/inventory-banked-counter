@@ -1,4 +1,4 @@
-package com.moon;
+package com.theovit;
 
 import com.google.inject.Provides;
 import java.util.ArrayList;
@@ -91,7 +91,7 @@ public class BankedCountPlugin extends Plugin
 		}
 		else if (event.getGameState() == GameState.LOGGED_IN && !bankReminderShown && bankQuantities == null)
 		{
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Inventory Banked Counter: open your bank once to start showing banked item counts.", null);
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "<col=ff0000>Inventory Banked Counter:</col> open your bank once to start showing banked item counts.", null);
 			bankReminderShown = true;
 		}
 	}
@@ -148,12 +148,13 @@ public class BankedCountPlugin extends Plugin
 		}
 
 		String name = itemManager.getItemComposition(itemManager.canonicalize(itemId)).getName();
+		String option = isExcluded(name) ? "Include in banked count" : "Exclude from banked count";
 
 		client.getMenu().createMenuEntry(-1)
-			.setOption("Exclude from banked count")
+			.setOption(option)
 			.setTarget(entry.getTarget())
 			.setType(MenuAction.RUNELITE)
-			.onClick(e -> excludeItem(name));
+			.onClick(e -> toggleExclusion(name));
 	}
 
 	@Subscribe
@@ -187,19 +188,21 @@ public class BankedCountPlugin extends Plugin
 		excludedItemNames = names;
 	}
 
-	private void excludeItem(String itemName)
+	private void toggleExclusion(String itemName)
 	{
-		if (isExcluded(itemName))
-		{
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", itemName + " is already excluded from the banked count overlay.", null);
-			return;
-		}
-
 		List<String> names = new ArrayList<>(Text.fromCSV(config.excludedItems()));
-		names.add(itemName);
-		configManager.setConfiguration(BankedCountConfig.GROUP, "excludedItems", Text.toCSV(names));
 
-		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Excluded " + itemName + " from the banked count overlay.", null);
+		if (names.removeIf(n -> n.equalsIgnoreCase(itemName)))
+		{
+			configManager.setConfiguration(BankedCountConfig.GROUP, "excludedItems", Text.toCSV(names));
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Included " + itemName + " in the banked count overlay again.", null);
+		}
+		else
+		{
+			names.add(itemName);
+			configManager.setConfiguration(BankedCountConfig.GROUP, "excludedItems", Text.toCSV(names));
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Excluded " + itemName + " from the banked count overlay.", null);
+		}
 	}
 
 	@Provides

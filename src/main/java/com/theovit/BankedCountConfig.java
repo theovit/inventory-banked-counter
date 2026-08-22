@@ -1,8 +1,10 @@
-package com.moon;
+package com.theovit;
 
+import java.awt.Color;
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
+import net.runelite.client.config.Range;
 
 @ConfigGroup(BankedCountConfig.GROUP)
 public interface BankedCountConfig extends Config
@@ -27,5 +29,26 @@ public interface BankedCountConfig extends Config
 	default boolean shorthandNumbers()
 	{
 		return true;
+	}
+
+	@ConfigItem(
+		keyName = "textColor",
+		name = "Overlay text color",
+		description = "Color of the banked-count text drawn on inventory items."
+	)
+	default Color textColor()
+	{
+		return Color.CYAN;
+	}
+
+	@ConfigItem(
+		keyName = "fontSize",
+		name = "Overlay font size",
+		description = "Font size of the banked-count text drawn on inventory items."
+	)
+	@Range(min = 8, max = 24)
+	default int fontSize()
+	{
+		return 12;
 	}
 }
