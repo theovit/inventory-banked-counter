@@ -51,4 +51,38 @@ public interface BankedCountConfig extends Config
 	{
 		return 12;
 	}
+
+	@ConfigItem(
+		keyName = "overlayPosition",
+		name = "Overlay position",
+		description = "Corner of the item slot to draw the banked count in — useful if another plugin already draws an overlay in the default corner."
+	)
+	default OverlayCorner overlayPosition()
+	{
+		return OverlayCorner.BOTTOM_RIGHT;
+	}
+
+	@ConfigItem(
+		keyName = "itemPositionOverrides",
+		name = "Per-item overlay position",
+		description = "Overrides the overlay position for specific items, e.g. Cake:TOP_LEFT. Normally managed via shift-right-click > Move banked count on an item."
+	)
+	default String itemPositionOverrides()
+	{
+		return "";
+	}
+
+	@ConfigItem(
+		keyName = "persistBankCache",
+		name = "Remember banked counts after logout",
+		description = "Keeps your last known banked counts visible after logging out, without needing to reopen your bank first. Numbers may be inaccurate until you next visit your bank — stored locally, per account.",
+		warning = "Banked counts may be inaccurate when shown from this cache:\n"
+			+ "- You may have visited your bank on another device or client since it was last saved\n"
+			+ "- This is a snapshot from your last bank visit, not live data — it won't reflect anything that changed while you were logged out\n\n"
+			+ "Only enable this if occasional stale numbers are acceptable until you reopen your bank."
+	)
+	default boolean persistBankCache()
+	{
+		return false;
+	}
 }

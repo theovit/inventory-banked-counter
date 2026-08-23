@@ -50,13 +50,18 @@ class BankedCountOverlay extends WidgetItemOverlay
 
 		Font font = BASE_FONT.deriveFont((float) config.fontSize());
 
+		OverlayCorner corner = plugin.getPositionOverride(name);
+		if (corner == null)
+		{
+			corner = config.overlayPosition();
+		}
+
 		Rectangle bounds = widgetItem.getCanvasBounds();
 		FontMetrics metrics = graphics.getFontMetrics(font);
-		int x = bounds.x + bounds.width - metrics.stringWidth(text) - 1;
-		int y = bounds.y + bounds.height - 2;
+		Point position = textPosition(corner, bounds, metrics, text);
 
 		TextComponent textComponent = new TextComponent();
-		textComponent.setPosition(new Point(x, y));
+		textComponent.setPosition(position);
 		textComponent.setColor(config.textColor());
 		textComponent.setFont(font);
 		textComponent.setOutline(true);
@@ -85,5 +90,16 @@ class BankedCountOverlay extends WidgetItemOverlay
 	{
 		long tenths = (quantity * 10L) / divisor;
 		return (tenths / 10) + "." + (tenths % 10) + suffix;
+	}
+
+	private static Point textPosition(OverlayCorner corner, Rectangle bounds, FontMetrics metrics, String text)
+	{
+		boolean left = corner == OverlayCorner.TOP_LEFT || corner == OverlayCorner.BOTTOM_LEFT;
+		boolean top = corner == OverlayCorner.TOP_LEFT || corner == OverlayCorner.TOP_RIGHT;
+
+		int x = left ? bounds.x + 1 : bounds.x + bounds.width - metrics.stringWidth(text) - 1;
+		int y = top ? bounds.y + metrics.getAscent() + 1 : bounds.y + bounds.height - 2;
+
+		return new Point(x, y);
 	}
 }
